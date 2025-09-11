@@ -107,7 +107,7 @@ app.use((req, res, next) => {
     serveStatic(app);
 
     // ✅ Catch-all fallback for React Router (prevents blue screen on refresh / deep links)
-    const clientDist = path.resolve(__dirname, "public");
+    const clientDist = path.resolve(__dirname, "dist");
     app.get("*", (req, res) => {
       const indexPath = path.join(clientDist, "index.html");
       if (existsSync(indexPath)) {
