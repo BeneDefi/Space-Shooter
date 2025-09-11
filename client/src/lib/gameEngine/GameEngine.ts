@@ -6,6 +6,7 @@ import { CollisionSystem } from "./CollisionSystem";
 import { PowerUp } from "./PowerUp";
 import { Boss, BossType } from "./Boss";
 import { EnemyFactory, EnemyVariant, EnemyBomber, EnemyKamikaze } from "./EnemyTypes";
+import { WeaponSystem } from "./WeaponSystems";
 
 export interface GameState {
   score: number;
@@ -29,6 +30,7 @@ export class GameEngine {
   private particles: Particle[] = [];
   private powerUps: PowerUp[] = [];
   private collisionSystem: CollisionSystem;
+  private weaponSystem: WeaponSystem;
   private boss: Boss | null = null;
   
   private score = 0;
@@ -52,6 +54,9 @@ export class GameEngine {
   private ctx: CanvasRenderingContext2D;
   private width: number;
   private height: number;
+  
+  // Responsive bullet scaling
+  private bulletScale: number = 1.0;
 
   constructor(ctx: CanvasRenderingContext2D, width: number, height: number) {
     this.ctx = ctx;
@@ -60,6 +65,10 @@ export class GameEngine {
     
     this.player = new Player(width / 2, height - 80, 60, 40);
     this.collisionSystem = new CollisionSystem();
+    this.weaponSystem = new WeaponSystem();
+    
+    // Calculate initial bullet scale based on screen size
+    this.updateBulletScale();
     
     // Listen for touch controls
     window.addEventListener('playerMove', this.handlePlayerMove.bind(this));
@@ -73,6 +82,27 @@ export class GameEngine {
     console.log(`Touch position: ${position.toFixed(2)}, Target X: ${targetX.toFixed(1)}, Canvas width: ${this.width}`);
     this.player.setTargetPosition(targetX);
   };
+
+  private updateBulletScale(): void {
+    // Calculate responsive bullet scale based on screen size
+    const shortSide = Math.min(this.width, this.height);
+    // Base scale calculation: smaller screens get bigger bullets
+    const baseScale = 720 / shortSide; // 720 is the baseline reference
+    // Clamp the scale between 1.0 and 2.5 for optimal visibility
+    this.bulletScale = Math.max(1.0, Math.min(2.5, baseScale));
+    
+    console.log(`Screen: ${this.width}x${this.height}, Short side: ${shortSide}, Bullet scale: ${this.bulletScale.toFixed(2)}`);
+  }
+
+  public getBulletScale(): number {
+    return this.bulletScale;
+  }
+
+  public updateCanvasSize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.updateBulletScale();
+  }
 
   public reset() {
     // Reset player position instead of creating new player
@@ -128,39 +158,24 @@ export class GameEngine {
     // Update player
     this.player.update(this.width, this.height);
 
-    // Auto-fire player bullets with power-up effects
-    this.playerFireTimer++;
-    const rapidFire = this.player.hasPowerUp('rapid-fire');
-    const fireDelay = rapidFire ? Math.floor(this.playerFireDelay / 3) : this.playerFireDelay;
+    // Auto-fire player bullets using WeaponSystem
+    this.weaponSystem.updateFireTimer();
     
-    if (this.playerFireTimer >= fireDelay) {
-      if (this.player.hasPowerUp('multi-shot')) {
-        // Fire multiple bullets in spread pattern
-        const angles = [-0.3, 0, 0.3];
-        for (const angle of angles) {
-          this.playerBullets.push(new Bullet(
-            this.player.x + Math.sin(angle) * 10,
-            this.player.y - this.player.height / 2,
-            Math.sin(angle) * 3,
-            -8 * Math.cos(angle),
-            3,
-            '#00ff00',
-            'player'
-          ));
-        }
-      } else {
-        // Normal single bullet
-        this.playerBullets.push(new Bullet(
-          this.player.x,
-          this.player.y - this.player.height / 2,
-          0,
-          -8,
-          3,
-          '#00ff00',
-          'player'
-        ));
-      }
-      this.playerFireTimer = 0;
+    // Update weapon effects
+    this.weaponSystem.updateWeaponEffects();
+    
+    // Update weapon targets for homing bullets
+    this.weaponSystem.updateTargets(this.enemies);
+    
+    // Handle power-ups by setting appropriate weapons
+    if (this.player.hasPowerUp('multi-shot')) {
+      this.weaponSystem.setWeapon('spread', 1000); // Short duration to match power-up
+    }
+    
+    // Fire bullets using WeaponSystem
+    const bullets = this.weaponSystem.fire(this.player.x, this.player.y - this.player.height / 2, this.bulletScale);
+    if (bullets.length > 0) {
+      this.playerBullets.push(...bullets);
       
       // Play shoot sound
       window.dispatchEvent(new CustomEvent('playShootSound'));
@@ -193,7 +208,7 @@ export class GameEngine {
           bullet.y,
           bullet.vx,
           bullet.vy,
-          3,
+          7 * this.bulletScale,
           '#ff4444',
           'enemy'
         ));
@@ -215,7 +230,7 @@ export class GameEngine {
               bomberResult.bombY,
               j * 0.5,
               4 + (this.level - 1) * 0.3,
-              3,
+              6 * this.bulletScale,
               '#ff6600',
               'enemy'
             ));
@@ -243,7 +258,7 @@ export class GameEngine {
             enemy.y + enemy.height / 2,
             0,
             4 + (this.level - 1) * 0.5,
-            2,
+            5 * this.bulletScale,
             '#ff0000',
             'enemy'
           ));

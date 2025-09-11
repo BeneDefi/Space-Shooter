@@ -12,7 +12,7 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    glsl(), // Add GLSL shader support
+    glsl(), // GLSL shader support
   ],
   resolve: {
     alias: {
@@ -22,9 +22,25 @@ export default defineConfig({
   },
   root: path.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
   },
-  // Add support for large models and audio files
-  assetsInclude: ["**/*.gltf", "**/*.glb", "**/*.mp3", "**/*.ogg", "**/*.wav"],
+  base: "./", 
+  assetsInclude: [
+    "**/*.gltf",
+    "**/*.glb",
+    "**/*.mp3",
+    "**/*.ogg",
+    "**/*.wav",
+  ],
+  server: {
+    port: 5173,
+    strictPort: true,
+    host: true,
+  },
+  preview: {
+    port: 4173,
+    strictPort: true,
+    host: true,
+  },
 });

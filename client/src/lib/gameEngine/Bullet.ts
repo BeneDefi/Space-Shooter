@@ -79,7 +79,7 @@ export class Bullet {
         ctx.fillStyle = this.color;
         ctx.shadowColor = this.color;
         ctx.shadowBlur = 5;
-        ctx.fillRect(this.x - 2, this.y - 8, 4, 16);
+        ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
       }
     } else {
       if (Bullet.enemyImageLoaded && Bullet.enemyRocketImage) {

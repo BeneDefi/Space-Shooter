@@ -95,7 +95,7 @@ export class WeaponSystem {
     }
   }
 
-  public fire(playerX: number, playerY: number): Bullet[] {
+  public fire(playerX: number, playerY: number, bulletScale: number = 1.0): Bullet[] {
     if (!this.canFire(15)) return [];
 
     const bullets: Bullet[] = [];
@@ -113,7 +113,7 @@ export class WeaponSystem {
           playerY - 20,
           0,
           -8,
-          3,
+          7 * bulletScale,
           '#00ff00',
           'player'
         ));
@@ -126,7 +126,7 @@ export class WeaponSystem {
           playerY - 20,
           0,
           -12,
-          1.5,
+          4 * bulletScale,
           '#ff00ff',
           'player'
         ));
@@ -141,7 +141,7 @@ export class WeaponSystem {
             playerY - 20,
             Math.sin(angle) * 4,
             -8 * Math.cos(angle),
-            2.5,
+            6 * bulletScale,
             '#ffaa00',
             'player'
           ));
@@ -162,7 +162,7 @@ export class WeaponSystem {
               playerY - 20,
               (dx / distance) * 6,
               (dy / distance) * 6,
-              4,
+              8 * bulletScale,
               '#00ffff',
               'player',
               target
@@ -175,7 +175,7 @@ export class WeaponSystem {
             playerY - 20,
             0,
             -6,
-            4,
+            8 * bulletScale,
             '#00ffff',
             'player'
           ));
@@ -189,7 +189,7 @@ export class WeaponSystem {
           playerY - 20,
           0,
           -5,
-          8,
+          14 * bulletScale,
           '#00ff88',
           'player'
         ));
