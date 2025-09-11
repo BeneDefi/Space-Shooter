@@ -1,0 +1,37 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEyMzQ1LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4MmNkODVhMDkzMjYxZjU5MjcwODA0QTZFQTY5N0NlQTRDZUJFY2FmRSJ9",
+    "payload": "eyJkb21haW4iOiJnYWxheGlnYS5nYW1lIn0",
+    "signature": "MHgwZmJiYWIwODg3YTU2MDFiNDU3MzVkOTQ5MDRjM2Y1NGUxMzVhZTQxOGEzMWQ5ODNhODAzZmZlYWNlZWMyZDYzNWY4ZTFjYWU4M2NhNTAwOTMzM2FmMTc1NDlmMDY2YTVlOWUwNTljNmZiNDUxMzg0Njk1NzBhODNiNjcyZWJjZTFi"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Galaxiga Classic Space Shooter",
+    "iconUrl": "https://galaxiga.game/icon.png",
+    "homeUrl": "https://galaxiga.game",
+    "splashImageUrl": "https://galaxiga.game/splash.png",
+    "splashBackgroundColor": "#0f172a",
+    "webhookUrl": "https://galaxiga.game/api/webhook",
+    "subtitle": "Classic arcade space shooter with Web3 rewards",
+    "description": "Battle aliens in space, earn tokens, compete with friends on leaderboards, and unlock exclusive NFT achievements in this social Web3 gaming experience.",
+    "screenshotUrls": [
+      "https://galaxiga.game/screenshot1.png",
+      "https://galaxiga.game/screenshot2.png",
+      "https://galaxiga.game/screenshot3.png"
+    ],
+    "primaryCategory": "games",
+    "tags": ["arcade", "shooter", "web3", "social", "competitive"],
+    "heroImageUrl": "https://galaxiga.game/hero.png",
+    "tagline": "Space battles meet Web3 rewards",
+    "ogTitle": "Galaxiga - Classic Space Shooter",
+    "ogDescription": "Battle aliens, earn tokens, compete with friends in this classic arcade space shooter reimagined for Web3.",
+    "ogImageUrl": "https://galaxiga.game/og-image.png",
+    "requiredChains": ["eip155:8453"],
+    "requiredCapabilities": [
+      "actions.ready",
+      "actions.composeCast",
+      "actions.addMiniApp",
+      "wallet.getEthereumProvider"
+    ]
+  }
+}

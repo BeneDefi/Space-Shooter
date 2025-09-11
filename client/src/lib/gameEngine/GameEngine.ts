@@ -1,0 +1,597 @@
+import { Player } from "./Player";
+import { Enemy } from "./Enemy";
+import { Bullet } from "./Bullet";
+import { Particle } from "./Particle";
+import { CollisionSystem } from "./CollisionSystem";
+import { PowerUp } from "./PowerUp";
+import { Boss, BossType } from "./Boss";
+import { EnemyFactory, EnemyVariant, EnemyBomber, EnemyKamikaze } from "./EnemyTypes";
+
+export interface GameState {
+  score: number;
+  lives: number;
+  level: number;
+  enemiesKilled: number;
+  levelProgress: number;
+  gameOver: boolean;
+  activePowerUps: string[];
+  bossActive: boolean;
+  bossHealth?: number;
+  bossMaxHealth?: number;
+  bossType?: BossType;
+}
+
+export class GameEngine {
+  public player: Player;
+  private enemies: Enemy[] = [];
+  private playerBullets: Bullet[] = [];
+  private enemyBullets: Bullet[] = [];
+  private particles: Particle[] = [];
+  private powerUps: PowerUp[] = [];
+  private collisionSystem: CollisionSystem;
+  private boss: Boss | null = null;
+  
+  private score = 0;
+  private lives = 3;
+  private level = 1;
+  private enemiesKilled = 0;
+  private gameOver = false;
+  
+  // Level progression settings
+  private readonly ENEMIES_PER_LEVEL = 10; // Enemies to kill to advance level
+  
+  // Dynamic difficulty settings (adjusted per level)
+  private enemySpawnTimer = 0;
+  private enemySpawnDelay = 120; // frames (gets faster each level)
+  private readonly BASE_ENEMY_SPAWN_DELAY = 120;
+  private readonly MIN_ENEMY_SPAWN_DELAY = 30;
+  
+  private playerFireTimer = 0;
+  private playerFireDelay = 15; // frames
+  
+  private ctx: CanvasRenderingContext2D;
+  private width: number;
+  private height: number;
+
+  constructor(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    this.ctx = ctx;
+    this.width = width;
+    this.height = height;
+    
+    this.player = new Player(width / 2, height - 80, 60, 40);
+    this.collisionSystem = new CollisionSystem();
+    
+    // Listen for touch controls
+    window.addEventListener('playerMove', this.handlePlayerMove.bind(this));
+  }
+
+  private handlePlayerMove = (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const position = customEvent.detail.position;
+    // Map position 0-1 to full screen width (0 to canvasWidth)
+    const targetX = position * this.width;
+    console.log(`Touch position: ${position.toFixed(2)}, Target X: ${targetX.toFixed(1)}, Canvas width: ${this.width}`);
+    this.player.setTargetPosition(targetX);
+  };
+
+  public reset() {
+    // Reset player position instead of creating new player
+    this.player.x = this.width / 2;
+    this.player.y = this.height - 80;
+    this.player.targetX = this.width / 2;
+    this.player.moveLeft = false;
+    this.player.moveRight = false;
+    
+    this.enemies = [];
+    this.playerBullets = [];
+    this.enemyBullets = [];
+    this.particles = [];
+    this.powerUps = [];
+    this.boss = null;
+    this.score = 0;
+    this.lives = 3;
+    this.level = 1;
+    this.enemiesKilled = 0;
+    this.gameOver = false;
+    this.enemySpawnTimer = 0;
+    this.playerFireTimer = 0;
+    
+    // Reset difficulty settings
+    this.enemySpawnDelay = this.BASE_ENEMY_SPAWN_DELAY;
+  }
+
+  public update(): GameState {
+    if (this.gameOver) {
+      return { 
+        score: this.score, 
+        lives: this.lives, 
+        level: this.level,
+        enemiesKilled: this.enemiesKilled,
+        levelProgress: (this.enemiesKilled % this.ENEMIES_PER_LEVEL) / this.ENEMIES_PER_LEVEL,
+        gameOver: this.gameOver,
+        activePowerUps: this.player.getActivePowerUps().map(p => p.type),
+        bossActive: false
+      };
+    }
+
+    // Check if boss should spawn (every 5 levels)
+    if (this.level % 5 === 0 && !this.boss && this.enemies.length === 0) {
+      const bossType = Boss.getBossTypeForLevel(this.level);
+      this.boss = new Boss(this.width / 2, 100, bossType, this.level);
+      
+      // Dispatch boss spawn event for UI feedback
+      window.dispatchEvent(new CustomEvent('bossSpawn', { 
+        detail: { type: bossType, level: this.level } 
+      }));
+    }
+
+    // Update player
+    this.player.update(this.width, this.height);
+
+    // Auto-fire player bullets with power-up effects
+    this.playerFireTimer++;
+    const rapidFire = this.player.hasPowerUp('rapid-fire');
+    const fireDelay = rapidFire ? Math.floor(this.playerFireDelay / 3) : this.playerFireDelay;
+    
+    if (this.playerFireTimer >= fireDelay) {
+      if (this.player.hasPowerUp('multi-shot')) {
+        // Fire multiple bullets in spread pattern
+        const angles = [-0.3, 0, 0.3];
+        for (const angle of angles) {
+          this.playerBullets.push(new Bullet(
+            this.player.x + Math.sin(angle) * 10,
+            this.player.y - this.player.height / 2,
+            Math.sin(angle) * 3,
+            -8 * Math.cos(angle),
+            3,
+            '#00ff00',
+            'player'
+          ));
+        }
+      } else {
+        // Normal single bullet
+        this.playerBullets.push(new Bullet(
+          this.player.x,
+          this.player.y - this.player.height / 2,
+          0,
+          -8,
+          3,
+          '#00ff00',
+          'player'
+        ));
+      }
+      this.playerFireTimer = 0;
+      
+      // Play shoot sound
+      window.dispatchEvent(new CustomEvent('playShootSound'));
+      window.dispatchEvent(new CustomEvent('bulletFired'));
+    }
+
+    // Spawn enemies with level-based difficulty (only if no boss)
+    if (!this.boss) {
+      this.enemySpawnTimer++;
+      if (this.enemySpawnTimer >= this.enemySpawnDelay) {
+        const x = Math.random() * (this.width - 60) + 30;
+        
+        // Use enemy factory to create varied enemy types
+        const variant = EnemyFactory.getRandomVariant(this.level);
+        const enemy = EnemyFactory.createEnemy(variant, x, -20, this.level);
+        
+        this.enemies.push(enemy);
+        this.enemySpawnTimer = 0;
+      }
+    }
+    
+    // Update boss if active
+    if (this.boss) {
+      const bossResult = this.boss.update(this.width, this.height);
+      
+      // Add boss bullets to enemy bullets array
+      for (const bullet of bossResult.bullets) {
+        this.enemyBullets.push(new Bullet(
+          bullet.x,
+          bullet.y,
+          bullet.vx,
+          bullet.vy,
+          3,
+          '#ff4444',
+          'enemy'
+        ));
+      }
+    }
+
+    // Update enemies and their special behaviors
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const enemy = this.enemies[i];
+      
+      // Handle special enemy behaviors
+      if (enemy instanceof EnemyBomber) {
+        const bomberResult = enemy.update(this.width, this.height);
+        if (bomberResult.shouldBomb) {
+          // Create bombing pattern - multiple bullets in a spread
+          for (let j = -1; j <= 1; j++) {
+            this.enemyBullets.push(new Bullet(
+              bomberResult.bombX + j * 15,
+              bomberResult.bombY,
+              j * 0.5,
+              4 + (this.level - 1) * 0.3,
+              3,
+              '#ff6600',
+              'enemy'
+            ));
+          }
+          window.dispatchEvent(new CustomEvent('playShootSound'));
+        }
+      } else if (enemy instanceof EnemyKamikaze) {
+        enemy.update(this.width, this.height, this.player.x);
+      } else {
+        enemy.update(this.width, this.height);
+      }
+
+      // Remove enemies that are off-screen
+      if (enemy.y > this.height + 50) {
+        this.enemies.splice(i, 1);
+        continue;
+      }
+
+      // Standard enemy firing (not for bombers or kamikaze)
+      if (!(enemy instanceof EnemyBomber) && !(enemy instanceof EnemyKamikaze)) {
+        const enemyFireChance = 0.003 + (this.level - 1) * 0.002;
+        if (Math.random() < enemyFireChance) {
+          this.enemyBullets.push(new Bullet(
+            enemy.x,
+            enemy.y + enemy.height / 2,
+            0,
+            4 + (this.level - 1) * 0.5,
+            2,
+            '#ff0000',
+            'enemy'
+          ));
+          window.dispatchEvent(new CustomEvent('playShootSound'));
+        }
+      }
+    }
+
+    // Update bullets
+    this.updateBullets(this.playerBullets);
+    this.updateBullets(this.enemyBullets);
+
+    // Update particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      this.particles[i].update();
+      if (this.particles[i].isDead()) {
+        this.particles.splice(i, 1);
+      }
+    }
+
+    // Update power-ups
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      this.powerUps[i].update();
+      
+      // Remove power-ups that are off-screen
+      if (this.powerUps[i].y > this.height + 50) {
+        this.powerUps.splice(i, 1);
+      }
+    }
+
+    // Handle collisions
+    this.handleCollisions();
+
+    return { 
+      score: this.score, 
+      lives: this.lives, 
+      level: this.level,
+      enemiesKilled: this.enemiesKilled,
+      levelProgress: (this.enemiesKilled % this.ENEMIES_PER_LEVEL) / this.ENEMIES_PER_LEVEL,
+      gameOver: this.gameOver,
+      activePowerUps: this.player.getActivePowerUps().map(p => p.type),
+      bossActive: !!this.boss,
+      bossHealth: this.boss?.health,
+      bossMaxHealth: this.boss?.maxHealth,
+      bossType: this.boss?.type
+    };
+  }
+
+  private updateBullets(bullets: Bullet[]) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      bullets[i].update();
+      
+      // Remove bullets that are off-screen
+      if (bullets[i].y < -10 || bullets[i].y > this.height + 10) {
+        bullets.splice(i, 1);
+      }
+    }
+  }
+
+  private handleCollisions() {
+    // Player bullets vs enemies
+    for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+      const bullet = this.playerBullets[i];
+      
+      for (let j = this.enemies.length - 1; j >= 0; j--) {
+        const enemy = this.enemies[j];
+        
+        if (this.collisionSystem.checkCollision(bullet, enemy)) {
+          // Create explosion particles
+          this.createExplosion(enemy.x, enemy.y, '#ffff00');
+          
+          // Remove bullet
+          this.playerBullets.splice(i, 1);
+          
+          // Damage enemy and check if destroyed
+          const enemyDestroyed = enemy.takeDamage(1);
+          
+          if (enemyDestroyed) {
+            // Remove enemy
+            this.enemies.splice(j, 1);
+            
+            // Update score and enemy kill count (different points for different types)
+            let points = 3 + (this.level - 1) * 4;
+            
+            // Bonus points for special enemies
+            if (enemy.constructor.name.includes('Heavy')) points *= 3;
+            else if (enemy.constructor.name.includes('Bomber')) points *= 2;
+            else if (enemy.constructor.name.includes('Scout')) points *= 1.5;
+            else if (enemy.constructor.name.includes('Kamikaze')) points *= 2;
+            
+            this.score += Math.floor(points);
+            this.enemiesKilled++;
+            
+            // Check for level progression
+            this.checkLevelProgression();
+            
+            // Higher chance for power-ups from special enemies
+            const powerUpChance = enemy.constructor.name === 'Enemy' ? 0.15 : 0.25;
+            if (Math.random() < powerUpChance) {
+              const powerUpType = PowerUp.getRandomType();
+              this.powerUps.push(new PowerUp(enemy.x, enemy.y, powerUpType));
+            }
+            
+            // Dispatch enemy destroyed event
+            window.dispatchEvent(new CustomEvent('enemyDestroyed'));
+            window.dispatchEvent(new CustomEvent('enemyKilled'));
+          }
+          
+          // Play hit sound
+          window.dispatchEvent(new CustomEvent('playHitSound'));
+          window.dispatchEvent(new CustomEvent('bulletHit'));
+          break;
+        }
+      }
+    }
+
+    // Player bullets vs boss
+    if (this.boss) {
+      for (let i = this.playerBullets.length - 1; i >= 0; i--) {
+        const bullet = this.playerBullets[i];
+        
+        if (this.collisionSystem.checkCollision(bullet, this.boss)) {
+          // Create explosion particles
+          this.createExplosion(bullet.x, bullet.y, '#ffaa00');
+          
+          // Remove bullet
+          this.playerBullets.splice(i, 1);
+          
+          // Damage boss
+          const bossDestroyed = this.boss.takeDamage(1);
+          
+          // Play hit sound
+          window.dispatchEvent(new CustomEvent('playHitSound'));
+          
+          if (bossDestroyed) {
+            // Create big explosion
+            this.createBigExplosion(this.boss.x, this.boss.y);
+            
+            // Reward player
+            this.score += 100 + (this.level * 20); // Big score bonus
+            
+            // Drop multiple power-ups
+            for (let k = 0; k < 3; k++) {
+              const powerUpType = PowerUp.getRandomType();
+              this.powerUps.push(new PowerUp(
+                this.boss.x + (Math.random() - 0.5) * 60,
+                this.boss.y + (Math.random() - 0.5) * 40,
+                powerUpType
+              ));
+            }
+            
+            // Remove boss and advance level
+            this.boss = null;
+            this.enemiesKilled = this.level * this.ENEMIES_PER_LEVEL; // Force level progression
+            this.checkLevelProgression();
+            
+            // Dispatch boss defeated event
+            window.dispatchEvent(new CustomEvent('bossDefeated', { 
+              detail: { level: this.level, score: this.score } 
+            }));
+            window.dispatchEvent(new CustomEvent('playSuccessSound'));
+          }
+          break;
+        }
+      }
+    }
+
+    // Enemy bullets vs player
+    for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+      const bullet = this.enemyBullets[i];
+      
+      if (this.collisionSystem.checkCollision(bullet, this.player)) {
+        // Check if player is shielded
+        if (this.player.isShielded) {
+          // Shield absorbs the hit
+          this.enemyBullets.splice(i, 1);
+          this.createExplosion(bullet.x, bullet.y, '#00ffff');
+          continue;
+        }
+        
+        // Create explosion particles
+        this.createExplosion(this.player.x, this.player.y, '#ff0000');
+        
+        // Remove bullet
+        this.enemyBullets.splice(i, 1);
+        
+        // Reduce lives
+        this.lives--;
+        
+        // Play hit sound and dispatch player hit event
+        window.dispatchEvent(new CustomEvent('playHitSound'));
+        window.dispatchEvent(new CustomEvent('playerHit'));
+        
+        if (this.lives <= 0) {
+          this.gameOver = true;
+        }
+        break;
+      }
+    }
+
+    // Enemies vs player
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const enemy = this.enemies[i];
+      
+      if (this.collisionSystem.checkCollision(enemy, this.player)) {
+        // Create explosion particles
+        this.createExplosion(enemy.x, enemy.y, '#ff8800');
+        
+        // Remove enemy
+        this.enemies.splice(i, 1);
+        
+        // Reduce lives
+        this.lives--;
+        
+        // Play hit sound and dispatch player hit event
+        window.dispatchEvent(new CustomEvent('playHitSound'));
+        window.dispatchEvent(new CustomEvent('playerHit'));
+        
+        if (this.lives <= 0) {
+          this.gameOver = true;
+        }
+        break;
+      }
+    }
+
+    // Power-ups vs player
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      const powerUp = this.powerUps[i];
+      
+      if (this.collisionSystem.checkCollision(powerUp, this.player)) {
+        // Apply power-up effect
+        if (powerUp.type === 'extra-life') {
+          this.lives++;
+        } else {
+          this.player.applyPowerUp(powerUp.type);
+        }
+        
+        // Remove power-up
+        this.powerUps.splice(i, 1);
+        
+        // Create collection particles
+        this.createExplosion(powerUp.x, powerUp.y, powerUp.color);
+        
+        // Play success sound
+        window.dispatchEvent(new CustomEvent('playSuccessSound'));
+        window.dispatchEvent(new CustomEvent('powerUpCollected'));
+        break;
+      }
+    }
+  }
+
+  private checkLevelProgression() {
+    // Check if enough enemies killed to advance level
+    if (this.enemiesKilled >= this.level * this.ENEMIES_PER_LEVEL) {
+      this.level++;
+      
+      // Update difficulty settings for new level
+      this.updateDifficulty();
+      
+      // Dispatch level up event for UI feedback
+      window.dispatchEvent(new CustomEvent('levelUp', { 
+        detail: { level: this.level, score: this.score } 
+      }));
+      
+      // Play success sound
+      window.dispatchEvent(new CustomEvent('playSuccessSound'));
+    }
+  }
+
+  private updateDifficulty() {
+    // Decrease spawn delay (increase spawn rate) but don't go below minimum
+    this.enemySpawnDelay = Math.max(
+      this.MIN_ENEMY_SPAWN_DELAY,
+      this.BASE_ENEMY_SPAWN_DELAY - (this.level - 1) * 15
+    );
+  }
+
+  private createExplosion(x: number, y: number, color: string) {
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const speed = Math.random() * 3 + 2;
+      this.particles.push(new Particle(
+        x,
+        y,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        color,
+        30
+      ));
+    }
+  }
+
+  private createBigExplosion(x: number, y: number) {
+    // Create larger explosion for boss defeat
+    for (let i = 0; i < 20; i++) {
+      const angle = (Math.PI * 2 * i) / 20;
+      const speed = Math.random() * 5 + 3;
+      const colors = ['#ff4400', '#ffaa00', '#ff0044', '#ffffff'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      
+      this.particles.push(new Particle(
+        x + (Math.random() - 0.5) * 40,
+        y + (Math.random() - 0.5) * 30,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        color,
+        50
+      ));
+    }
+  }
+
+  public render() {
+    // Clear canvas
+    this.ctx.fillStyle = 'rgba(0, 0, 20, 0.2)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Render star field
+    this.renderStars();
+
+    // Render player
+    this.player.render(this.ctx);
+
+    // Render enemies
+    this.enemies.forEach(enemy => enemy.render(this.ctx));
+    
+    // Render boss
+    if (this.boss) {
+      this.boss.render(this.ctx);
+    }
+
+    // Render bullets
+    this.playerBullets.forEach(bullet => bullet.render(this.ctx));
+    this.enemyBullets.forEach(bullet => bullet.render(this.ctx));
+
+    // Render power-ups
+    this.powerUps.forEach(powerUp => powerUp.render(this.ctx));
+
+    // Render particles
+    this.particles.forEach(particle => particle.render(this.ctx));
+  }
+
+  private renderStars() {
+    this.ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 50; i++) {
+      const x = (i * 37) % this.width;
+      const y = (i * 47 + Date.now() * 0.05) % this.height;
+      const size = Math.sin(i) * 0.5 + 1;
+      this.ctx.fillRect(x, y, size, size);
+    }
+  }
+}
