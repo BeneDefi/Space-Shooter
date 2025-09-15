@@ -31,23 +31,23 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const initMiniKit = async () => {
+    const initMiniKit = () => {
       console.log('🚀 Starting MiniKit initialization...');
+      
       try {
-        console.log('📡 Checking SDK availability...');
-        if (!sdk) {
-          throw new Error('SDK not available');
-        }
-
-        console.log('🔗 Getting context information...');
-        // Get context information with timeout
-        let contextData = null;
+        console.log('✅ Calling sdk.actions.ready() immediately...');
+        // Call ready immediately without async/await to avoid timing issues
+        sdk.actions.ready();
+        console.log('🎯 sdk.actions.ready() called');
+      } catch (readyError) {
+        console.warn('⚠️ sdk.actions.ready() failed:', readyError);
+      }
+      
+      // Get context in background without blocking the ready call
+      const getContextAsync = async () => {
         try {
-          const contextPromise = sdk.context;
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Context timeout')), 2000)
-          );
-          contextData = await Promise.race([contextPromise, timeoutPromise]);
+          console.log('🔗 Getting context information...');
+          const contextData = await sdk.context;
           console.log('📊 Context data received:', contextData);
           setContext(contextData);
 
@@ -63,38 +63,20 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
             setIsConnected(true);
           }
         } catch (contextError) {
-          console.warn('⏱️ Context not available (likely not in Farcaster):', contextError.message);
+          console.log('📱 No Farcaster context (running standalone)');
         }
-
-        console.log('✅ Calling sdk.actions.ready()...');
-        // Signal that the app is ready - this is critical even if context fails
-        try {
-          const readyPromise = sdk.actions.ready();
-          const readyTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Ready timeout')), 3000)
-          );
-          await Promise.race([readyPromise, readyTimeoutPromise]);
-          console.log('🎯 sdk.actions.ready() called successfully');
-        } catch (readyError) {
-          console.warn('⚠️ sdk.actions.ready() failed or timed out:', readyError.message);
-          console.log('📱 App will continue without Farcaster integration');
-        }
-        
-        setIsReady(true);
-        console.log('🎉 MiniKit initialization completed');
-      } catch (error) {
-        console.error('❌ Failed to initialize MiniKit:', error);
-        console.log('⚠️ Marking as ready despite initialization failure');
-        setIsReady(true); // Still mark as ready even if initialization fails
-      }
+      };
+      
+      // Start context retrieval in background
+      getContextAsync();
+      
+      // Mark as ready immediately
+      setIsReady(true);
+      console.log('🎉 MiniKit initialization completed');
     };
 
-    // Add a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      initMiniKit();
-    }, 100);
-
-    return () => clearTimeout(timer);
+    // Initialize immediately
+    initMiniKit();
   }, []);
 
   const signIn = async () => {
