@@ -110,15 +110,19 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     }
   };
 
-  const notifyReady = () => {
+  const notifyReady = async () => {
     try {
-      console.log('✅ Calling sdk.actions.ready() after app content is loaded...');
-      sdk.actions.ready();
-      console.log('🎯 sdk.actions.ready() called successfully');
+      console.log("✅ Calling sdk.actions.ready() after app content is loaded...");
+      if (sdk?.actions?.ready) {
+        await sdk.actions.ready();
+        console.log("🎯 sdk.actions.ready() resolved successfully");
+      } else {
+        console.warn("⚠️ sdk.actions.ready is not available on sdk");
+      }
     } catch (readyError) {
-      console.warn('⚠️ sdk.actions.ready() failed:', readyError);
+      console.error("⚠️ sdk.actions.ready() failed:", readyError);
     }
-  };
+  };  
 
   const value: MiniKitContextType = {
     isReady,
