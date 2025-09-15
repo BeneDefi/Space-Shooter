@@ -32,34 +32,69 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
 
   useEffect(() => {
     const initMiniKit = async () => {
+      console.log('🚀 Starting MiniKit initialization...');
       try {
-        // Get context information
-        const contextData = await sdk.context;
-        setContext(contextData);
-
-        // Check if user is already signed in
-        if (contextData?.user) {
-          setUser({
-            fid: contextData.user.fid,
-            username: contextData.user.username,
-            displayName: contextData.user.displayName,
-            pfpUrl: contextData.user.pfpUrl
-          });
-          setIsConnected(true);
+        console.log('📡 Checking SDK availability...');
+        if (!sdk) {
+          throw new Error('SDK not available');
         }
 
-        // Signal that the app is ready
-        await sdk.actions.ready();
-        setIsReady(true);
+        console.log('🔗 Getting context information...');
+        // Get context information with timeout
+        let contextData = null;
+        try {
+          const contextPromise = sdk.context;
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Context timeout')), 2000)
+          );
+          contextData = await Promise.race([contextPromise, timeoutPromise]);
+          console.log('📊 Context data received:', contextData);
+          setContext(contextData);
 
-        console.log('MiniKit initialized successfully');
+          // Check if user is already signed in
+          if (contextData?.user) {
+            console.log('👤 User found in context:', contextData.user);
+            setUser({
+              fid: contextData.user.fid,
+              username: contextData.user.username,
+              displayName: contextData.user.displayName,
+              pfpUrl: contextData.user.pfpUrl
+            });
+            setIsConnected(true);
+          }
+        } catch (contextError) {
+          console.warn('⏱️ Context not available (likely not in Farcaster):', contextError.message);
+        }
+
+        console.log('✅ Calling sdk.actions.ready()...');
+        // Signal that the app is ready - this is critical even if context fails
+        try {
+          const readyPromise = sdk.actions.ready();
+          const readyTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Ready timeout')), 3000)
+          );
+          await Promise.race([readyPromise, readyTimeoutPromise]);
+          console.log('🎯 sdk.actions.ready() called successfully');
+        } catch (readyError) {
+          console.warn('⚠️ sdk.actions.ready() failed or timed out:', readyError.message);
+          console.log('📱 App will continue without Farcaster integration');
+        }
+        
+        setIsReady(true);
+        console.log('🎉 MiniKit initialization completed');
       } catch (error) {
-        console.error('Failed to initialize MiniKit:', error);
+        console.error('❌ Failed to initialize MiniKit:', error);
+        console.log('⚠️ Marking as ready despite initialization failure');
         setIsReady(true); // Still mark as ready even if initialization fails
       }
     };
 
-    initMiniKit();
+    // Add a small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      initMiniKit();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const signIn = async () => {
