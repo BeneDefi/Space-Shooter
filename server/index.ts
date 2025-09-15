@@ -11,6 +11,9 @@ import { existsSync } from "fs";
 
 const app = express();
 
+// ✅ Trust proxy for Replit environment (configure securely)
+app.set('trust proxy', 1);
+
 // ✅ Required for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,12 +24,14 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
-        fontSrc: ["'self'", "data:"],
-        mediaSrc: ["'self'"],
+        scriptSrc: process.env.NODE_ENV === 'production' 
+          ? ["'self'"] 
+          : ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow dev tools in development
+        styleSrc: ["'self'", "'unsafe-inline'"], // Keep for styled-components compatibility
+        imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow external images
+        connectSrc: ["'self'", "ws:", "wss:", "https:"], // Allow WebSocket and HTTPS connections
+        fontSrc: ["'self'", "data:", "https:"],
+        mediaSrc: ["'self'", "https:"],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -35,20 +40,26 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.NODE_ENV === "production" ? false : true,
+    origin: process.env.NODE_ENV === "production" 
+      ? process.env.ALLOWED_ORIGINS?.split(',') || true // Allow specific origins in production
+      : true, // Allow all origins in development
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Rate limiting
+// Rate limiting - configured for proxy environment
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   message: { error: "Too many requests from this IP, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks
+    return req.path === '/health' || req.path === '/api/health';
+  },
 });
 
 const apiLimiter = rateLimit({
@@ -66,25 +77,12 @@ app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 app.use((req, res, next) => {
   const start = Date.now();
   const pathUrl = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (pathUrl.startsWith("/api")) {
-      let logLine = `${req.method} ${pathUrl} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-      log(logLine);
+      // Only log method, path, status, and timing - NEVER log response bodies containing tokens
+      log(`${req.method} ${pathUrl} ${res.statusCode} in ${duration}ms`);
     }
   });
 

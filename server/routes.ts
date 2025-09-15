@@ -8,8 +8,20 @@ import { insertUserSchema, type User } from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
 import CryptoJS from "crypto-js";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
-const GAME_ENCRYPTION_KEY = process.env.GAME_ENCRYPTION_KEY || 'dev-game-key-change-in-production';
+// Enforce strong secrets in production
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set in production');
+  }
+  return 'dev-secret-change-in-production';
+})();
+
+const GAME_ENCRYPTION_KEY = process.env.GAME_ENCRYPTION_KEY || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('GAME_ENCRYPTION_KEY must be set in production');
+  }
+  return 'dev-game-key-change-in-production';
+})();
 
 // Middleware for JWT authentication
 const authenticateToken = (req: Request, res: Response, next: NextFunction) => {

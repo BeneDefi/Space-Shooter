@@ -73,7 +73,7 @@ function AppContent() {
         imageUrl="https://galaxiga.game/og-image.png"
       />
       
-      {false ? (
+      {!isReady ? (
         <div className="flex items-center justify-center h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
           <div className="text-center">
             <div className="animate-spin w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"></div>
