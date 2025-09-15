@@ -20,21 +20,13 @@
       "https://galaxiga.game/screenshot3.png"
     ],
     "primaryCategory": "games",
-    "tags": [
-      "arcade",
-      "shooter",
-      "web3",
-      "social",
-      "competitive"
-    ],
+    "tags": ["arcade", "shooter", "web3", "social", "competitive"],
     "heroImageUrl": "https://galaxiga.game/hero.png",
     "tagline": "Space battles meet Web3 rewards",
     "ogTitle": "Galaxiga - Classic Space Shooter",
     "ogDescription": "Battle aliens, earn tokens, compete with friends in this classic arcade space shooter reimagined for Web3.",
     "ogImageUrl": "https://galaxiga.game/og-image.png",
-    "requiredChains": [
-      "eip155:8453"
-    ],
+    "requiredChains": ["eip155:8453"],
     "requiredCapabilities": [
       "actions.ready",
       "actions.composeCast",
