@@ -117,13 +117,13 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
         await sdk.actions.ready();
         console.log("🎯 sdk.actions.ready() resolved successfully");
       } else {
-        console.warn("⚠️ sdk.actions.ready is not available on sdk");
+        console.warn("⚠️ sdk.actions.ready is not available");
       }
     } catch (readyError) {
       console.error("⚠️ sdk.actions.ready() failed:", readyError);
     }
-  };  
-
+  }; 
+   
   const value: MiniKitContextType = {
     isReady,
     user,

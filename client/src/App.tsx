@@ -50,13 +50,14 @@ function AppContent() {
   // Call sdk.actions.ready() when app content is fully loaded and visible
   useEffect(() => {
     if (isReady) {
-      // Small delay to ensure DOM is fully rendered
       const timer = setTimeout(() => {
-        notifyReady();
+        (async () => {
+          await notifyReady();
+        })();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isReady, notifyReady]);
+  }, [isReady, notifyReady]);  
 
   // Return to menu when game ends
   useEffect(() => {
