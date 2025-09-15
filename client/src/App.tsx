@@ -17,7 +17,7 @@ function AppContent() {
   const [isMiniApp, setIsMiniApp] = useState(false);
   const { gamePhase } = useGameState();
   const { setBackgroundMusic, setHitSound, setSuccessSound, setShootSound, setGameOverSound } = useAudio();
-  const { isReady, context } = useMiniKit();
+  const { isReady, context, notifyReady } = useMiniKit();
 
   useEffect(() => {
     // Check if running in Mini App context
@@ -46,6 +46,17 @@ function AppContent() {
     setShootSound(shootSound);
     setGameOverSound(gameOverSound);
   }, [setBackgroundMusic, setHitSound, setSuccessSound, setShootSound, setGameOverSound]);
+
+  // Call sdk.actions.ready() when app content is fully loaded and visible
+  useEffect(() => {
+    if (isReady) {
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(() => {
+        notifyReady();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isReady, notifyReady]);
 
   // Return to menu when game ends
   useEffect(() => {

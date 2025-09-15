@@ -16,6 +16,7 @@ interface MiniKitContextType {
   signIn: () => Promise<void>;
   shareScore: (score: number) => Promise<void>;
   addToApp: () => Promise<void>;
+  notifyReady: () => void;
 }
 
 const MiniKitContext = createContext<MiniKitContextType | undefined>(undefined);
@@ -34,16 +35,7 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     const initMiniKit = () => {
       console.log('🚀 Starting MiniKit initialization...');
       
-      try {
-        console.log('✅ Calling sdk.actions.ready() immediately...');
-        // Call ready immediately without async/await to avoid timing issues
-        sdk.actions.ready();
-        console.log('🎯 sdk.actions.ready() called');
-      } catch (readyError) {
-        console.warn('⚠️ sdk.actions.ready() failed:', readyError);
-      }
-      
-      // Get context in background without blocking the ready call
+      // Get context in background
       const getContextAsync = async () => {
         try {
           console.log('🔗 Getting context information...');
@@ -70,7 +62,7 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
       // Start context retrieval in background
       getContextAsync();
       
-      // Mark as ready immediately
+      // Mark as ready immediately (don't call sdk.actions.ready() here yet)
       setIsReady(true);
       console.log('🎉 MiniKit initialization completed');
     };
@@ -118,6 +110,16 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     }
   };
 
+  const notifyReady = () => {
+    try {
+      console.log('✅ Calling sdk.actions.ready() after app content is loaded...');
+      sdk.actions.ready();
+      console.log('🎯 sdk.actions.ready() called successfully');
+    } catch (readyError) {
+      console.warn('⚠️ sdk.actions.ready() failed:', readyError);
+    }
+  };
+
   const value: MiniKitContextType = {
     isReady,
     user,
@@ -125,7 +127,8 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     isConnected,
     signIn,
     shareScore,
-    addToApp
+    addToApp,
+    notifyReady
   };
 
   return (
