@@ -1,4 +1,9 @@
 {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEyMzQ1LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4MmNkODVhMDkzMjYxZjU5MjcwODA0QTZFQTY5N0NlQTRDZUJFY2FmRSJ9",
+    "payload": "eyJkb21haW4iOiJnYWxheGlnYS5nYW1lIn0",
+    "signature": "MHgwZmJiYWIwODg3YTU2MDFiNDU3MzVkOTQ5MDRjM2Y1NGUxMzVhZTQxOGEzMWQ5ODNhODAzZmZlYWNlZWMyZDYzNWY4ZTFjYWU4M2NhNTAwOTMzM2FmMTc1NDlmMDY2YTVlOWUwNTljNmZiNDUxMzg0Njk1NzBhODNiNjcyZWJjZTFi"
+  },
   "miniapp": {
     "version": "1",
     "name": "Galaxiga Classic Space Shooter",

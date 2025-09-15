@@ -56,9 +56,9 @@ const decryptGameState = (encryptedData: string): any => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-    // Farcaster manifest redirect
+    // Farcaster manifest - serve local file
   app.get('/.well-known/farcaster.json', (req: Request, res: Response) => {
-    res.redirect(307, 'https://api.farcaster.xyz/miniapps/hosted-manifest/01994abc-e1ce-bb45-9084-9e24e6d3ec72');
+    res.sendFile('/home/runner/workspace/client/public/.well-known/farcaster.json');
   });
   // User Registration
   app.post('/api/auth/register', [
