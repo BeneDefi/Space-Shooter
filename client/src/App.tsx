@@ -48,16 +48,16 @@ function AppContent() {
   }, [setBackgroundMusic, setHitSound, setSuccessSound, setShootSound, setGameOverSound]);
 
   // Call sdk.actions.ready() when app content is fully loaded and visible
-  useEffect(() => {
-    if (isReady) {
-      const timer = setTimeout(() => {
-        (async () => {
-          await notifyReady();
-        })();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isReady, notifyReady]);  
+  // useEffect(() => {
+  //   if (isReady) {
+  //     const timer = setTimeout(() => {
+  //       (async () => {
+  //         await notifyReady();
+  //       })();
+  //     }, 100);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [isReady, notifyReady]);  
 
   // Return to menu when game ends
   useEffect(() => {

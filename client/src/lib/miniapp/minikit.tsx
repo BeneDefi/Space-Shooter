@@ -31,43 +31,81 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
   const [context, setContext] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    const initMiniKit = () => {
-      console.log('🚀 Starting MiniKit initialization...');
-      
-      // Get context in background
-      const getContextAsync = async () => {
-        try {
-          console.log('🔗 Getting context information...');
-          const contextData = await sdk.context;
-          console.log('📊 Context data received:', contextData);
-          setContext(contextData);
+  // useEffect(() => {
+  //   const initMiniKit = () => {
+  //     console.log('🚀 Starting MiniKit initialization...');
 
-          // Check if user is already signed in
-          if (contextData?.user) {
-            console.log('👤 User found in context:', contextData.user);
-            setUser({
-              fid: contextData.user.fid,
-              username: contextData.user.username,
-              displayName: contextData.user.displayName,
-              pfpUrl: contextData.user.pfpUrl
-            });
-            setIsConnected(true);
-          }
-        } catch (contextError) {
-          console.log('📱 No Farcaster context (running standalone)');
+  //     // Get context in background
+  //     const getContextAsync = async () => {
+  //       try {
+  //         console.log('🔗 Getting context information...');
+  //         const contextData = await sdk.context;
+  //         console.log('📊 Context data received:', contextData);
+  //         setContext(contextData);
+
+  //         // Check if user is already signed in
+  //         if (contextData?.user) {
+  //           console.log('👤 User found in context:', contextData.user);
+  //           setUser({
+  //             fid: contextData.user.fid,
+  //             username: contextData.user.username,
+  //             displayName: contextData.user.displayName,
+  //             pfpUrl: contextData.user.pfpUrl
+  //           });
+  //           setIsConnected(true);
+  //         }
+  //       } catch (contextError) {
+  //         console.log('📱 No Farcaster context (running standalone)');
+  //       }
+  //     };
+
+  //     // Start context retrieval in background
+  //     getContextAsync();
+
+  //     // Mark as ready immediately (don't call sdk.actions.ready() here yet)
+  //     setIsReady(true);
+  //     console.log('🎉 MiniKit initialization completed');
+  //   };
+
+  //   // Initialize immediately
+  //   initMiniKit();
+  // }, []);
+
+  useEffect(() => {
+    const initMiniKit = async () => {
+      console.log("🚀 Starting MiniKit initialization...");
+
+      try {
+        const contextData = await sdk.context;
+        console.log("📊 Context data received:", contextData);
+        setContext(contextData);
+
+        if (contextData?.user) {
+          setUser({
+            fid: contextData.user.fid,
+            username: contextData.user.username,
+            displayName: contextData.user.displayName,
+            pfpUrl: contextData.user.pfpUrl,
+          });
+          setIsConnected(true);
         }
-      };
-      
-      // Start context retrieval in background
-      getContextAsync();
-      
-      // Mark as ready immediately (don't call sdk.actions.ready() here yet)
+      } catch (err) {
+        console.log("📱 No Farcaster context (running standalone)");
+      }
+
       setIsReady(true);
-      console.log('🎉 MiniKit initialization completed');
+
+      // ✅ Tell Warpcast we're ready
+      if (sdk?.actions?.ready) {
+        try {
+          await sdk.actions.ready();
+          console.log("🎯 sdk.actions.ready() sent to Warpcast");
+        } catch (err) {
+          console.error("⚠️ sdk.actions.ready() failed:", err);
+        }
+      }
     };
 
-    // Initialize immediately
     initMiniKit();
   }, []);
 
@@ -122,8 +160,8 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     } catch (readyError) {
       console.error("⚠️ sdk.actions.ready() failed:", readyError);
     }
-  }; 
-   
+  };
+
   const value: MiniKitContextType = {
     isReady,
     user,
