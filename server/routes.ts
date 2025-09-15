@@ -8,20 +8,8 @@ import { insertUserSchema, type User } from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
 import CryptoJS from "crypto-js";
 
-// Enforce strong secrets in production
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_SECRET must be set in production');
-  }
-  return 'dev-secret-change-in-production';
-})();
-
-const GAME_ENCRYPTION_KEY = process.env.GAME_ENCRYPTION_KEY || (() => {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('GAME_ENCRYPTION_KEY must be set in production');
-  }
-  return 'dev-game-key-change-in-production';
-})();
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const GAME_ENCRYPTION_KEY = process.env.GAME_ENCRYPTION_KEY || 'dev-game-key-change-in-production';
 
 // Middleware for JWT authentication
 const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
@@ -69,10 +57,9 @@ const decryptGameState = (encryptedData: string): any => {
 
 export async function registerRoutes(app: Express): Promise<Server> {
     // Farcaster manifest redirect
-    app.get('/.well-known/farcaster.json', (req: Request, res: Response) => {
-      res.redirect(307, 'https://api.farcaster.xyz/miniapps/hosted-manifest/01994abc-e1ce-bb45-9084-9e24e6d3ec72');
-    });
-  
+  app.get('/.well-known/farcaster.json', (req: Request, res: Response) => {
+    res.redirect(307, 'https://api.farcaster.xyz/miniapps/hosted-manifest/01994abc-e1ce-bb45-9084-9e24e6d3ec72');
+  });
   // User Registration
   app.post('/api/auth/register', [
     body('username')

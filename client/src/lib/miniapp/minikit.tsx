@@ -33,26 +33,8 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
   useEffect(() => {
     const initMiniKit = async () => {
       try {
-        console.log('Starting MiniKit initialization...');
-        
-        // Check if we're running in a Farcaster context
-        const isInFarcaster = window.location.search.includes('miniapp=true') || 
-                             window.parent !== window || 
-                             navigator.userAgent.includes('Farcaster');
-        
-        if (!isInFarcaster) {
-          console.log('Not running in Farcaster context, skipping SDK initialization');
-          setIsReady(true);
-          return;
-        }
-
-        // Get context information with timeout
-        const contextPromise = sdk.context;
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SDK context timeout')), 5000)
-        );
-        
-        const contextData = await Promise.race([contextPromise, timeoutPromise]);
+        // Get context information
+        const contextData = await sdk.context;
         setContext(contextData);
 
         // Check if user is already signed in
@@ -73,7 +55,6 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
         console.log('MiniKit initialized successfully');
       } catch (error) {
         console.error('Failed to initialize MiniKit:', error);
-        console.log('Marking app as ready despite initialization failure');
         setIsReady(true); // Still mark as ready even if initialization fails
       }
     };
