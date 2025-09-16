@@ -109,6 +109,12 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
 
+    // ✅ Serve Farcaster manifest in production
+    app.use(
+      "/.well-known",
+      express.static(path.join(__dirname, ".well-known"))
+    );
+
     // ✅ Catch-all fallback for React Router (prevents blue screen on refresh / deep links)
     const clientDist = path.resolve(__dirname);
     app.get("*", (req, res) => {
