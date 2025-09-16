@@ -15,8 +15,12 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Trust proxy for Replit hosting environment
-app.set('trust proxy', true);
+// ✅ Trust proxy: only enable in production behind a proxy
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1); // trust first proxy (Render, Heroku, etc.)
+} else {
+  app.set("trust proxy", false); // local dev
+}
 
 // Security middleware
 app.use(
@@ -66,6 +70,7 @@ app.use("/api", apiLimiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
+// Request logging
 app.use((req, res, next) => {
   const start = Date.now();
   const pathUrl = req.path;
@@ -104,19 +109,18 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // ✅ Always serve Farcaster manifest (dev + prod)
+  const manifestPath = path.resolve(process.cwd(), "public/.well-known");
+  console.log("Serving Farcaster manifest from:", manifestPath);
+  app.use("/.well-known", express.static(manifestPath));
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
 
-    // ✅ Serve Farcaster manifest in production
-    app.use(
-      "/.well-known",
-      express.static(path.join(__dirname, ".well-known"))
-    );
-
-    // ✅ Catch-all fallback for React Router (prevents blue screen on refresh / deep links)
-    const clientDist = path.resolve(__dirname);
+    // ✅ Catch-all fallback for React Router
+    const clientDist = path.resolve(process.cwd(), "client/dist");
     app.get("*", (req, res) => {
       const indexPath = path.join(clientDist, "index.html");
       if (existsSync(indexPath)) {
